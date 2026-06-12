@@ -1,0 +1,39 @@
+when:
+    - event: cron
+      cron: sync
+      branch: main
+    - event: manual
+      branch: main
+
+clone:
+    - name: clone
+      image: quay.io/amrkmn/crow/clone:1
+      settings:
+          partial: false
+
+steps:
+    - name: check-sync
+      image: docker.io/library/alpine:3.22
+      environment:
+          GITHUB_TOKEN:
+              from_secret: github_token
+      commands:
+          - |
+              set -eu
+              trap 'rc=$?; if [ "$rc" -eq 0 ]; then echo "check-sync: success"; else echo "check-sync: failed ($rc)"; fi' EXIT
+              apk add --no-cache curl jq >/dev/null
+              sh .crow/scripts/sync.sh
+
+    - name: git-push
+      image: docker.io/appleboy/drone-git-push:latest
+      depends_on: [check-sync]
+      settings:
+          ssh_key:
+              from_secret: git_ssh_key
+          remote:
+              from_secret: git_remote
+          remote_name: origin
+          branch: main
+          force: false
+          commit: true
+          commit_message: sync to latest artifact
