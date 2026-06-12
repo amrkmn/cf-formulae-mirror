@@ -30,6 +30,15 @@ jobs:
             - name: Install bun deps
               run: bun install --frozen-lockfile
 
+            - name: Cache artifact zip
+              id: cache-artifact
+              uses: actions/cache@v4
+              with:
+                  path: ~/.cache/formulae-mirror-artifacts
+                  key: formulae-artifact-${{ hashFiles('.version') }}
+                  restore-keys: |
+                      formulae-artifact-
+
             - name: Extract & sync
               env:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
