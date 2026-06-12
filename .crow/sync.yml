@@ -36,6 +36,7 @@ steps:
           - |
               set -eu
               STATUS="success"
+              GIT_SSH_COMMAND="ssh -v"
               trap 'rc=$?; if [ "$rc" -eq 0 ]; then echo "commit-and-push: $STATUS"; else echo "commit-and-push: failed ($rc)"; fi' EXIT
 
               apk add --no-cache git openssh-client >/dev/null
