@@ -38,12 +38,15 @@ async function syncToB2(): Promise<void> {
     console.log(`  syncing ${OUTPUT_DIR} -> b2:${B2_BUCKET}/`);
 
     await $`rclone sync ${OUTPUT_DIR} b2:${B2_BUCKET} \
-      --b2-hard-delete \
-      --checksum \
-      --transfers 20 \
-      --checkers 20 \
-      --progress \
-      --stats-one-line-date`.env(process.env);
+            --b2-hard-delete \
+            --checksum \
+            --transfers 20 \
+            --checkers 20 \
+            --retries 3 \
+            --retries-sleep 5s \
+            --log-level INFO \
+            --progress \
+            --stats-one-line-date`.env(process.env);
 
     const sizeResult = await $`rclone size b2:${B2_BUCKET} --fast-list`
         .env(process.env)
