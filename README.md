@@ -89,8 +89,8 @@ Add these secrets in **Crow UI → Repository → Settings → Secrets**:
 | Secret Name | Value |
 |---|---|
 | `github_token` | GitHub PAT (no scopes needed — public repo) |
-| `git_ssh_key` | SSH private key with push access to the repo |
-| `git_remote` | SSH remote URL (e.g. `ssh://git@github.com/you/cf-formulae-mirror.git`) |
+| `forgejo_ssh_key` | SSH private key (PEM format) with push access |
+| `forgejo_remote` | SSH remote (e.g. `ssh://git@codeberg.org/ujol/cf-formulae-mirror.git`) |
 
 ### 3. Configure Cron Job
 
