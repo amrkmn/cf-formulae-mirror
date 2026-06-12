@@ -379,7 +379,7 @@ export async function extractPages(outputDir: string): Promise<{
 
     // ---- extract ----
 
-    const tmpDir = mkdtempSync(join(tmpdir(), "formulae-mirror-"));
+    const tmpDir = mkdtempSync(join(CACHE_DIR, "tmp-"));
     try {
         const unzipDir = join(tmpDir, "unzip");
         mkdirSync(unzipDir, { recursive: true });

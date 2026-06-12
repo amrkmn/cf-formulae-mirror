@@ -28,10 +28,10 @@ steps:
       image: docker.io/library/alpine:3.22
       depends_on: [check-sync]
       environment:
-          FORGEJO_SSH_KEY:
-              from_secret: forgejo_ssh_key
-          FORGEJO_REMOTE:
-              from_secret: forgejo_remote
+          GIT_SSH_KEY:
+              from_secret: ssh_key
+          GIT_REMOTE:
+              from_secret: git_remote
       commands:
           - |
               set -eu
@@ -46,10 +46,10 @@ steps:
               git config user.email "crowci@users.noreply.local"
 
               mkdir -p ~/.ssh && chmod 700 ~/.ssh
-              printf '%s\n' "$FORGEJO_SSH_KEY" > ~/.ssh/id_ed25519
+              printf '%s\n' "$GIT_SSH_KEY" > ~/.ssh/id_ed25519
               chmod 600 ~/.ssh/id_ed25519
 
-              git remote set-url origin "$FORGEJO_REMOTE"
+              git remote set-url origin "$GIT_REMOTE"
               git add .version
 
               if git diff --cached --quiet; then
