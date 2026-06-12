@@ -36,7 +36,7 @@ steps:
           - |
               set -eu
               STATUS="success"
-              export GIT_SSH_COMMAND="ssh -v"
+              export GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=accept-new"
               trap 'rc=$?; if [ "$rc" -eq 0 ]; then echo "commit-and-push: $STATUS"; else echo "commit-and-push: failed ($rc)"; fi' EXIT
 
               apk add --no-cache git openssh-client >/dev/null
@@ -47,9 +47,6 @@ steps:
               mkdir -p ~/.ssh && chmod 700 ~/.ssh
               printf '%s\n' "$FORGEJO_SSH_KEY" > ~/.ssh/id_ed25519
               chmod 600 ~/.ssh/id_ed25519
-              FORGEJO_HOST=$(echo "$FORGEJO_REMOTE" | sed 's|.*@||;s|:.*||;s|/.*||')
-              ssh-keyscan "$FORGEJO_HOST" | head -1 > ~/.ssh/known_hosts
-              chmod 644 ~/.ssh/known_hosts
 
               git remote set-url origin "$FORGEJO_REMOTE"
               git add .version
