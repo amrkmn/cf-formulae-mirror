@@ -12,26 +12,12 @@ steps:
     environment:
       GH_TOKEN:
         from_secret: github_token
-      GIT_REMOTE:
-        from_secret: git_remote
+      GITHUB_REPOSITORY:
+        from_secret: github_repository
       GITHUB_REF: main
     commands:
       - apk add --no-cache github-cli
       - |
-        repo_slug() {
-          local repo="$1"
-
-          repo=$(printf '%s' "$repo" | tr -d '\r\n')
-          repo="$${repo%.git}"
-          repo="$${repo#https://github.com/}"
-          repo="$${repo#http://github.com/}"
-          repo="$${repo#git@github.com:}"
-          repo="$${repo#ssh://git@github.com/}"
-          repo="$${repo%/}"
-
-          printf '%s\n' "$repo"
-        }
-
-        repo_path=$(repo_slug "$${GIT_REMOTE}")
+        repo_path=$(printf '%s' "$${GITHUB_REPOSITORY}" | tr -d '\r\n')
         echo "Dispatching cleanup-hidden.yml to $${repo_path} on ref $${GITHUB_REF}"
         gh workflow run cleanup-hidden.yml --repo "$repo_path" --ref "$${GITHUB_REF}"

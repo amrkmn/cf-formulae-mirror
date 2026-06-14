@@ -89,7 +89,7 @@ Add these secrets in **Crow UI → Repository → Settings → Secrets**:
 | Secret Name | Value |
 |---|---|
 | `github_token` | GitHub token with permission to dispatch workflows on the target repo |
-| `git_remote` | GitHub remote URL; Crow extracts `owner/repo` from it |
+| `github_repository` | GitHub repository in `owner/repo` format |
 | `forgejo_ssh_key` | SSH private key (PEM format) with push access |
 | `forgejo_remote` | SSH remote (e.g. `ssh://git@codeberg.org/ujol/cf-formulae-mirror.git`) |
 
