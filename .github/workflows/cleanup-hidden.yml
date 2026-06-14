@@ -40,7 +40,7 @@ jobs:
 
           echo "Cleaning hidden versions in ${target}"
 
-          rclone backend cleanup-hidden "$target" \
+          rclone cleanup "$target" \
             --fast-list \
             --checkers 64 \
             --transfers 64 \
