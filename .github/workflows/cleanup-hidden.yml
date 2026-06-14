@@ -1,0 +1,42 @@
+name: Cleanup hidden B2 versions
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup-hidden:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      B2_BUCKET: ${{ secrets.B2_BUCKET }}
+      B2_APPLICATION_KEY_ID: ${{ secrets.B2_APPLICATION_KEY_ID }}
+      B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
+      B2_ENDPOINT: ${{ secrets.B2_ENDPOINT }}
+    steps:
+      - name: Install rclone
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq rclone
+
+      - name: Cleanup hidden versions in B2
+        run: |
+          test -n "$B2_BUCKET"
+          test -n "$B2_APPLICATION_KEY_ID"
+          test -n "$B2_APPLICATION_KEY"
+
+          export RCLONE_CONFIG_B2_TYPE=b2
+          export RCLONE_CONFIG_B2_ACCOUNT="$B2_APPLICATION_KEY_ID"
+          export RCLONE_CONFIG_B2_KEY="$B2_APPLICATION_KEY"
+
+          if [ -n "$B2_ENDPOINT" ]; then
+            export RCLONE_CONFIG_B2_ENDPOINT="$B2_ENDPOINT"
+          fi
+
+          rclone backend cleanup-hidden "b2:${B2_BUCKET}" \
+            --fast-list \
+            --checkers 64 \
+            --transfers 64 \
+            --progress

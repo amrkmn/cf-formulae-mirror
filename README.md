@@ -88,7 +88,8 @@ Add these secrets in **Crow UI → Repository → Settings → Secrets**:
 
 | Secret Name | Value |
 |---|---|
-| `github_token` | GitHub PAT (no scopes needed — public repo) |
+| `github_token` | GitHub token with permission to dispatch workflows on the target repo |
+| `git_remote` | GitHub repo URL in `https://github.com/user/repo` format |
 | `forgejo_ssh_key` | SSH private key (PEM format) with push access |
 | `forgejo_remote` | SSH remote (e.g. `ssh://git@codeberg.org/ujol/cf-formulae-mirror.git`) |
 
@@ -97,15 +98,15 @@ Add these secrets in **Crow UI → Repository → Settings → Secrets**:
 In **Crow UI → Repository → Settings → Cron Jobs**:
 
 1. **Add cron job**
-2. Name: `sync`
-3. Schedule: `@daily` (or `0 */6 * * *` for every 6 hours)
+2. Name: `cleanup-hidden`
+3. Schedule: `0 */2 * * *`
 4. Branch: `main`
 
-The pipeline in `.crow/sync.yml` listens for the `sync` cron event and dispatches the GitHub Actions workflow via API.
+The pipeline in `.crow/cleanup-hidden.yml` listens for the `cleanup-hidden` cron event and dispatches the GitHub Actions workflow via API.
 
 ### 4. Manual Trigger
 
-You can also trigger a sync manually from **Crow UI → Pipelines → Run pipeline**.
+You can also trigger the cleanup pipeline manually from **Crow UI → Pipelines → Run pipeline**.
 
 ## GitHub Actions Setup
 
@@ -123,11 +124,17 @@ Add these secrets in **GitHub repo → Settings → Secrets and variables → Ac
 
 ### 2. Workflow
 
-`.github/workflows/sync.yml` runs on push to `main` (when `src/` changes) and on `workflow_dispatch` (triggered by Crow).
+`.github/workflows/sync.yml` runs on push to `main` (when `src/` changes) and on `workflow_dispatch`.
+
+`.github/workflows/cleanup-hidden.yml` runs on `workflow_dispatch`, uses the same `B2_BUCKET`, `B2_APPLICATION_KEY_ID`, `B2_APPLICATION_KEY`, and optional `B2_ENDPOINT` env setup as `src/sync.ts`, then executes:
+
+```bash
+rclone backend cleanup-hidden "b2:${B2_BUCKET}" --fast-list --checkers 64 --transfers 64 --progress
+```
 
 ### 3. Manual Trigger
 
-From **GitHub → Actions → Sync formulae.brew.sh to B2 → Run workflow**.
+From **GitHub → Actions** choose either workflow (`Sync formulae.brew.sh to B2` or `Cleanup hidden B2 versions`) and click **Run workflow**.
 
 ## rclone Configuration (Local Use)
 
