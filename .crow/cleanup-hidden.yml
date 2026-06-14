@@ -8,7 +8,7 @@ when:
 
 steps:
   - name: dispatch-workflow
-    image: curlimages/curl:8.14.1
+    image: curlimages/curl:8.20.0
     environment:
       GITHUB_TOKEN:
         from_secret: github_token
