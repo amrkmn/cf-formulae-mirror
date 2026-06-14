@@ -22,12 +22,12 @@ steps:
           local repo="$1"
 
           repo=$(printf '%s' "$repo" | tr -d '\r\n')
-          repo="${repo%.git}"
-          repo="${repo#https://github.com/}"
-          repo="${repo#http://github.com/}"
-          repo="${repo#git@github.com:}"
-          repo="${repo#ssh://git@github.com/}"
-          repo="${repo%/}"
+          repo="$${repo%.git}"
+          repo="$${repo#https://github.com/}"
+          repo="$${repo#http://github.com/}"
+          repo="$${repo#git@github.com:}"
+          repo="$${repo#ssh://git@github.com/}"
+          repo="$${repo%/}"
 
           printf '%s\n' "$repo"
         }
