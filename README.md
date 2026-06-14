@@ -89,7 +89,7 @@ Add these secrets in **Crow UI → Repository → Settings → Secrets**:
 | Secret Name | Value |
 |---|---|
 | `github_token` | GitHub token with permission to dispatch workflows on the target repo |
-| `git_remote` | GitHub repo URL in `https://github.com/user/repo` format |
+| `git_remote` | GitHub remote URL; Crow extracts `owner/repo` from it |
 | `forgejo_ssh_key` | SSH private key (PEM format) with push access |
 | `forgejo_remote` | SSH remote (e.g. `ssh://git@codeberg.org/ujol/cf-formulae-mirror.git`) |
 
@@ -102,7 +102,7 @@ In **Crow UI → Repository → Settings → Cron Jobs**:
 3. Schedule: `0 */2 * * *`
 4. Branch: `main`
 
-The pipeline in `.crow/cleanup-hidden.yml` listens for the `cleanup-hidden` cron event and dispatches the GitHub Actions workflow via API.
+The pipeline in `.crow/cleanup-hidden.yml` listens for the `cleanup-hidden` cron event and dispatches the GitHub Actions workflow via `gh workflow run`.
 
 ### 4. Manual Trigger
 

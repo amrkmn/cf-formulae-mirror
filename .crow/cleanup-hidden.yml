@@ -10,24 +10,28 @@ steps:
   - name: dispatch-workflow
     image: docker.io/library/alpine:3.22
     environment:
-      GITHUB_TOKEN:
+      GH_TOKEN:
         from_secret: github_token
       GIT_REMOTE:
         from_secret: git_remote
       GITHUB_REF: main
     commands:
-      - apk add --no-cache curl
-      - >-
-        raw_remote=$(printf '%s' "$${GIT_REMOTE}" | tr -d '\r\n');
-        repo_path="$${raw_remote#https://github.com/}";
-        repo_path="$${repo_path%.git}";
-        repo_path="$${repo_path%/}";
-        echo "Dispatching cleanup-hidden.yml to $${repo_path} on ref $${GITHUB_REF}";
-        payload=$(printf '{"ref":"%s"}' "$${GITHUB_REF}");
-        curl --fail-with-body --silent --show-error
-        -X POST
-        -H "Accept: application/vnd.github+json"
-        -H "Authorization: Bearer $${GITHUB_TOKEN}"
-        -H "X-GitHub-Api-Version: 2022-11-28"
-        "https://api.github.com/repos/$${repo_path}/actions/workflows/cleanup-hidden.yml/dispatches"
-        -d "$${payload}"
+      - apk add --no-cache github-cli
+      - |
+        repo_slug() {
+          local repo="$1"
+
+          repo=$(printf '%s' "$repo" | tr -d '\r\n')
+          repo="${repo%.git}"
+          repo="${repo#https://github.com/}"
+          repo="${repo#http://github.com/}"
+          repo="${repo#git@github.com:}"
+          repo="${repo#ssh://git@github.com/}"
+          repo="${repo%/}"
+
+          printf '%s\n' "$repo"
+        }
+
+        repo_path=$(repo_slug "$${GIT_REMOTE}")
+        echo "Dispatching cleanup-hidden.yml to $${repo_path} on ref $${GITHUB_REF}"
+        gh workflow run cleanup-hidden.yml --repo "$repo_path" --ref "$${GITHUB_REF}"
