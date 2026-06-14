@@ -60,7 +60,7 @@ source .env && bun run extract
 | `GITHUB_TOKEN` | Yes | GitHub PAT (no scopes needed for public repos) |
 | `B2_APPLICATION_KEY_ID` | Yes | Backblaze B2 key ID |
 | `B2_APPLICATION_KEY` | Yes | Backblaze B2 application key |
-| `B2_BUCKET` | Yes | Bucket name (must be globally unique) |
+| `B2_BUCKET` | Yes | B2 target, e.g. `bucket` or `bucket/prefix` |
 | `B2_ENDPOINT` | No | B2 endpoint (auto-detected from key) |
 | `ARTIFACT_API_URL` | No | Override GitHub artifact API URL |
 | `OUTPUT_DIR` | No | Output directory (default: `./dist`) |
@@ -119,18 +119,14 @@ Add these secrets in **GitHub repo → Settings → Secrets and variables → Ac
 | `GITHUB_TOKEN` | GitHub PAT (no scopes needed for public repos) |
 | `B2_APPLICATION_KEY_ID` | B2 key ID |
 | `B2_APPLICATION_KEY` | B2 application key |
-| `B2_BUCKET` | Your B2 bucket name |
+| `B2_BUCKET` | Your B2 target (`bucket` or `bucket/prefix`) |
 | `B2_ENDPOINT` | (optional) Your B2 endpoint |
 
 ### 2. Workflow
 
 `.github/workflows/sync.yml` runs on push to `main` (when `src/` changes) and on `workflow_dispatch`.
 
-`.github/workflows/cleanup-hidden.yml` runs on `workflow_dispatch`, uses the same `B2_BUCKET`, `B2_APPLICATION_KEY_ID`, `B2_APPLICATION_KEY`, and optional `B2_ENDPOINT` env setup as `src/sync.ts`, then executes:
-
-```bash
-rclone backend cleanup-hidden "b2:${B2_BUCKET}" --fast-list --checkers 64 --transfers 64 --progress
-```
+`.github/workflows/cleanup-hidden.yml` runs on `workflow_dispatch`, uses the same `B2_BUCKET`, `B2_APPLICATION_KEY_ID`, `B2_APPLICATION_KEY`, and optional `B2_ENDPOINT` env setup as `src/sync.ts`, then uses only the bucket portion of `B2_BUCKET` for `cleanup-hidden`.
 
 ### 3. Manual Trigger
 
