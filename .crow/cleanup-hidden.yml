@@ -18,8 +18,11 @@ steps:
     commands:
       - apk add --no-cache curl
       - >-
-        repo_path="$${GIT_REMOTE#https://github.com/}";
+        raw_remote=$(printf '%s' "$${GIT_REMOTE}" | tr -d '\r\n');
+        repo_path="$${raw_remote#https://github.com/}";
         repo_path="$${repo_path%.git}";
+        repo_path="$${repo_path%/}";
+        echo "Dispatching cleanup-hidden.yml to $${repo_path} on ref $${GITHUB_REF}";
         payload=$(printf '{"ref":"%s"}' "$${GITHUB_REF}");
         curl --fail-with-body --silent --show-error
         -X POST
