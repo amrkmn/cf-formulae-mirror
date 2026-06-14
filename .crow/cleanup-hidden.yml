@@ -8,7 +8,7 @@ when:
 
 steps:
   - name: dispatch-workflow
-    image: curlimages/curl:8.20.0
+    image: docker.io/library/alpine:3.22
     environment:
       GITHUB_TOKEN:
         from_secret: github_token
@@ -16,6 +16,7 @@ steps:
         from_secret: git_remote
       GITHUB_REF: main
     commands:
+      - apk add --no-cache curl
       - >-
         repo_path="$${GIT_REMOTE#https://github.com/}";
         repo_path="$${repo_path%.git}";
