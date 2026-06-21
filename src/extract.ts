@@ -41,22 +41,6 @@ interface ArtifactMeta {
     sizeInBytes: number;
 }
 
-type ArtifactUrlSource = "nightly.link" | "github";
-
-interface ArtifactUrlResult {
-    id: number;
-    url: string;
-    source: ArtifactUrlSource;
-    sizeInBytes: number;
-}
-
-interface ArtifactUrlOptions {
-    /** Prefer nightly.link over GitHub API (default: true). */
-    preferNightly?: boolean;
-    /** Fall back to GitHub API if nightly.link is unreachable (default: true). */
-    fallback?: boolean;
-}
-
 const sleep = (ms: number): Promise<void> =>
     new Promise((r) => setTimeout(r, ms));
 
@@ -262,63 +246,6 @@ async function fetchLatestArtifact(): Promise<ArtifactMeta> {
     };
 }
 
-async function isUrlReachable(url: string): Promise<boolean> {
-    try {
-        const res = await fetch(url, { method: "HEAD", redirect: "follow" });
-        return res.ok || res.status === 302 || res.status === 301;
-    } catch {
-        return false;
-    }
-}
-
-function nightlyUrl(artifactId: number): string {
-    return `https://nightly.link/Homebrew/formulae.brew.sh/actions/artifacts/${artifactId}.zip`;
-}
-
-export async function getArtifactUrl(
-    opts?: ArtifactUrlOptions,
-): Promise<ArtifactUrlResult> {
-    const preferNightly = opts?.preferNightly ?? true;
-    const fallback = opts?.fallback ?? true;
-
-    const token = process.env.GITHUB_TOKEN;
-    if (!token) {
-        throw new Error("GITHUB_TOKEN is required (set in .env for local dev)");
-    }
-
-    const latest = await fetchLatestArtifact();
-    const sizeMB = (latest.sizeInBytes / (1024 * 1024)).toFixed(2);
-    console.log(`  latest artifact: #${latest.id} (${sizeMB} MB)`);
-
-    if (preferNightly) {
-        const url = nightlyUrl(latest.id);
-        console.log(`  checking nightly.link...`);
-        if (await isUrlReachable(url)) {
-            console.log(`  url: ${url} (nightly.link)`);
-            return {
-                id: latest.id,
-                url,
-                source: "nightly.link",
-                sizeInBytes: latest.sizeInBytes,
-            };
-        }
-        console.log(`  nightly.link unreachable`);
-        if (!fallback) {
-            throw new Error(
-                "nightly.link is unreachable and fallback is disabled",
-            );
-        }
-    }
-
-    console.log(`  url: ${latest.archiveDownloadUrl} (github)`);
-    return {
-        id: latest.id,
-        url: latest.archiveDownloadUrl,
-        source: "github",
-        sizeInBytes: latest.sizeInBytes,
-    };
-}
-
 export async function extractPages(outputDir: string): Promise<{
     filePaths: Set<string>;
     artifactId: number;
@@ -423,6 +350,10 @@ export async function extractPages(outputDir: string): Promise<{
 // ---- CLI entry point ----
 
 async function main(): Promise<void> {
+    if (!Bun.which("unzip")) {
+        throw new Error("Missing required command: unzip");
+    }
+
     console.log("Starting formulae.brew.sh mirror sync...");
 
     rmSync(OUTPUT_DIR, { recursive: true, force: true });

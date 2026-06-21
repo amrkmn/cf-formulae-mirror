@@ -23,6 +23,15 @@ function validateEnv(): void {
     requireEnv("B2_APPLICATION_KEY", B2_APPLICATION_KEY);
 }
 
+function checkPrereqs(): void {
+    const missing = ["rclone", "unzip"].filter((cmd) => !Bun.which(cmd));
+    if (missing.length > 0) {
+        throw new Error(
+            `Missing required commands: ${missing.join(", ")}`,
+        );
+    }
+}
+
 function configureRclone(): void {
     process.env.RCLONE_CONFIG_B2_TYPE = "b2";
     process.env.RCLONE_CONFIG_B2_ACCOUNT = B2_APPLICATION_KEY_ID!;
@@ -65,6 +74,7 @@ async function syncToB2(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+    checkPrereqs();
     validateEnv();
 
     console.log("Starting cf-formulae-mirror sync...");
@@ -74,14 +84,14 @@ async function main(): Promise<void> {
 
     const { filePaths, artifactId } = await extractPages(OUTPUT_DIR);
 
-    writeFileSync(join(import.meta.dir, "..", ".version"), String(artifactId));
-
     console.log(
         `Done! ${filePaths.size} files extracted (artifact #${artifactId}).`,
     );
     console.log(`  syncing to B2...`);
 
     await syncToB2();
+
+    writeFileSync(join(import.meta.dir, "..", ".version"), String(artifactId));
 }
 
 main().catch((err) => {
