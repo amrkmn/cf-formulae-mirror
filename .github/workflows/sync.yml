@@ -46,3 +46,31 @@ jobs:
                   B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
                   B2_BUCKET: ${{ secrets.B2_BUCKET }}
               run: bun run src/sync.ts
+
+            - name: Cleanup hidden B2 versions
+              if: success() || failure()
+              continue-on-error: true
+              env:
+                  B2_APPLICATION_KEY_ID: ${{ secrets.B2_APPLICATION_KEY_ID }}
+                  B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
+                  B2_BUCKET: ${{ secrets.B2_BUCKET }}
+                  B2_ENDPOINT: ${{ secrets.B2_ENDPOINT }}
+              run: |
+                  export RCLONE_CONFIG_B2_TYPE=b2
+                  export RCLONE_CONFIG_B2_ACCOUNT="$B2_APPLICATION_KEY_ID"
+                  export RCLONE_CONFIG_B2_KEY="$B2_APPLICATION_KEY"
+
+                  if [ -n "$B2_ENDPOINT" ]; then
+                    export RCLONE_CONFIG_B2_ENDPOINT="$B2_ENDPOINT"
+                  fi
+
+                  bucket="${B2_BUCKET%%/*}"
+                  target="b2:${bucket}"
+
+                  echo "Cleaning hidden versions in ${target}"
+
+                  rclone cleanup "$target" \
+                    --fast-list \
+                    --checkers 64 \
+                    --transfers 64 \
+                    --progress

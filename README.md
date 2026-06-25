@@ -93,20 +93,9 @@ Add these secrets in **Crow UI → Repository → Settings → Secrets**:
 | `forgejo_ssh_key` | SSH private key (PEM format) with push access |
 | `forgejo_remote` | SSH remote (e.g. `ssh://git@codeberg.org/ujol/cf-formulae-mirror.git`) |
 
-### 3. Configure Cron Job
+### 3. Manual Trigger
 
-In **Crow UI → Repository → Settings → Cron Jobs**:
-
-1. **Add cron job**
-2. Name: `cleanup-hidden`
-3. Schedule: `0 */2 * * *`
-4. Branch: `main`
-
-The pipeline in `.crow/cleanup-hidden.yml` listens for the `cleanup-hidden` cron event and dispatches the GitHub Actions workflow via `gh workflow run`.
-
-### 4. Manual Trigger
-
-You can also trigger the cleanup pipeline manually from **Crow UI → Pipelines → Run pipeline**.
+Trigger the sync pipeline from **Crow UI → Pipelines → Run pipeline**.
 
 ## GitHub Actions Setup
 
@@ -124,13 +113,11 @@ Add these secrets in **GitHub repo → Settings → Secrets and variables → Ac
 
 ### 2. Workflow
 
-`.github/workflows/sync.yml` runs on push to `main` (when `src/` changes) and on `workflow_dispatch`.
-
-`.github/workflows/cleanup-hidden.yml` runs on `workflow_dispatch`, uses the same `B2_BUCKET`, `B2_APPLICATION_KEY_ID`, `B2_APPLICATION_KEY`, and optional `B2_ENDPOINT` env setup as `src/sync.ts`, then uses only the bucket portion of `B2_BUCKET` for `cleanup-hidden`.
+.github/workflows/sync.yml` runs on push to `main` (when `src/` changes) and on `workflow_dispatch`. After each successful sync, it automatically runs `rclone cleanup` to purge hidden file versions from B2 — so no separate cleanup workflow is needed.
 
 ### 3. Manual Trigger
 
-From **GitHub → Actions** choose either workflow (`Sync formulae.brew.sh to B2` or `Cleanup hidden B2 versions`) and click **Run workflow**.
+From **GitHub → Actions** choose the `Sync formulae.brew.sh to B2` workflow and click **Run workflow**.
 
 ## rclone Configuration (Local Use)
 
