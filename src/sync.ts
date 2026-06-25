@@ -73,9 +73,36 @@ async function syncToB2(): Promise<void> {
     );
 }
 
+async function cleanupHiddenVersions(): Promise<void> {
+    configureRclone();
+
+    const bucket = B2_BUCKET!.split("/")[0];
+    const target = `b2:${bucket}`;
+
+    console.log(`  cleaning hidden versions in ${target}...`);
+
+    await $`rclone cleanup ${target} \
+            --fast-list \
+            --checkers 64 \
+            --transfers 64 \
+            --log-level INFO \
+            --progress \
+            --stats 30s \
+            --stats-one-line-date`.env(process.env);
+
+    console.log(`  cleanup complete — bucket: ${bucket}`);
+}
+
 async function main(): Promise<void> {
     checkPrereqs();
     validateEnv();
+
+    // If --cleanup flag is passed, only run cleanup (no sync)
+    if (process.argv.includes("--cleanup")) {
+        console.log("Running B2 hidden version cleanup...");
+        await cleanupHiddenVersions();
+        return;
+    }
 
     console.log("Starting cf-formulae-mirror sync...");
 
@@ -92,6 +119,12 @@ async function main(): Promise<void> {
     await syncToB2();
 
     writeFileSync(join(import.meta.dir, "..", ".version"), String(artifactId));
+
+    try {
+        await cleanupHiddenVersions();
+    } catch (err) {
+        console.warn("Cleanup failed (non-fatal):", err);
+    }
 }
 
 main().catch((err) => {
