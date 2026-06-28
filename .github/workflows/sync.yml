@@ -50,8 +50,8 @@ jobs:
             - name: Cleanup hidden B2 versions
               continue-on-error: true
               env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
                   B2_APPLICATION_KEY_ID: ${{ secrets.B2_APPLICATION_KEY_ID }}
                   B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
                   B2_BUCKET: ${{ secrets.B2_BUCKET }}
-                  B2_ENDPOINT: ${{ secrets.B2_ENDPOINT }}
               run: bun run src/sync.ts --cleanup
