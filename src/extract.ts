@@ -328,7 +328,7 @@ export async function extractPages(outputDir: string): Promise<{
 
         for (const [path, file] of entries) {
             const normalized = path.replace(/^\.\/?/, "");
-            if (normalized) {
+            if (normalized.startsWith("api/")) {
                 const outPath = join(outputDir, normalized);
                 mkdirSync(join(outPath, ".."), { recursive: true });
                 writeFileSync(
