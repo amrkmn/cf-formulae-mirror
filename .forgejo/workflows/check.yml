@@ -1,0 +1,52 @@
+name: Check formulae artifact
+
+# Cron stage: polls Homebrew's github-pages artifact and rolls .version forward.
+# Ported from .crow/sync.yml (CrowCI). A push of .version triggers sync.yml.
+on:
+    schedule:
+        - cron: "0 * * * *"
+    workflow_dispatch: {}
+
+jobs:
+    check:
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
+
+            - name: Install deps
+              run: |
+                  sudo apt-get update -qq
+                  sudo apt-get install -y -qq curl jq
+
+            - name: Check for new artifact
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              run: sh .crow/scripts/sync.sh
+
+            - name: Commit and push
+              env:
+                  SSH_KEY: ${{ secrets.SSH_KEY }}
+              run: |
+                  set -eu
+                  export GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=accept-new"
+
+                  mkdir -p ~/.ssh && chmod 700 ~/.ssh
+                  printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+                  chmod 600 ~/.ssh/id_ed25519
+
+                  git config user.name  "Forgejo"
+                  git config user.email "forgejo@users.noreply.local"
+
+                  git add .version
+                  if git diff --cached --quiet; then
+                    echo "no change"
+                    exit 0
+                  fi
+
+                  git commit -m "sync: artifact #$(cat .version)"
+                  git pull --rebase --autostash origin main
+                  git push origin HEAD:main
