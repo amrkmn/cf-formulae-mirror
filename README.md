@@ -2,18 +2,20 @@
 
 Mirrors [formulae.brew.sh](https://formulae.brew.sh) using **Backblaze B2 + Cloudflare CDN**.
 
-No servers to maintain. Zero egress fees (Bandwidth Alliance). Updates automatically via Crow CI cron.
+No servers to maintain. Zero egress fees (Bandwidth Alliance). Updates automatically via Forgejo Actions + GitHub Actions.
 
 ## Architecture
 
 ```
-GitHub Actions artifact          Crow CI (cron)
-  Homebrew/formulae.brew.sh ──▶  extract.ts ──▶ rclone sync ──▶ B2 bucket
-                                                                   │
-                                                              Cloudflare CDN
-                                                                   │
-                                                          formulae.yourdomain.com
+Forgejo Actions (cron, every 20 min)        GitHub Actions (on push)
+  Homebrew/formulae.brew.sh ──▶ .version ──▶  extract.ts ──▶ rclone sync ──▶ B2 bucket
+                                                                                 │
+                                                                            Cloudflare CDN
+                                                                                 │
+                                                                    formulae.yourdomain.com
 ```
+
+A scheduled Forgejo workflow polls Homebrew's latest `github-pages` artifact and bumps `.version` when it changes. That push triggers the GitHub Actions workflow, which extracts and syncs the files to B2.
 
 - **extract.ts**: Downloads the latest `github-pages` artifact from the Homebrew repo, extracts all static files
 - **rclone**: Syncs extracted files to a public Backblaze B2 bucket with checksums
@@ -25,7 +27,7 @@ GitHub Actions artifact          Crow CI (cron)
 - [rclone](https://rclone.org) ≥ 1.74
 - A [Backblaze B2](https://www.backblaze.com/b2/cloud-storage.html) account
 - A domain on [Cloudflare](https://dash.cloudflare.com/) (Free plan works)
-- (Optional) A [Crow CI](https://crowci.dev) instance for automated syncs
+- (Optional) A [Forgejo](https://forgejo.org) instance with Actions enabled for scheduled checks
 
 ## Quickstart (Local)
 
@@ -76,26 +78,26 @@ See [docs/CLOUDFLARE.md](docs/CLOUDFLARE.md) for step-by-step instructions to:
 4. Set caching headers
 5. Verify the setup
 
-## Crow CI Setup
+## Forgejo Actions Setup
 
-### 1. Instance Setup
+A scheduled workflow on your Forgejo instance detects new artifacts and rolls `.version` forward. The resulting push triggers the actual B2 sync on GitHub Actions, so the Forgejo runner only needs to reach the GitHub API and push back to this repo.
 
-Any Crow CI instance with the `clone` plugin works — no heavy deps needed since actual work runs on GitHub Actions.
+### 1. Workflow
+
+`.forgejo/workflows/check.yml` runs on a `*/20` minute cron (and `workflow_dispatch`). It queries the latest `github-pages` artifact from `Homebrew/formulae.brew.sh`, writes its ID to `.version` when changed, and commits + pushes.
 
 ### 2. Repository Secrets
 
-Add these secrets in **Crow UI → Repository → Settings → Secrets**:
+Add these secrets in **Forgejo → Repo → Settings → Actions → Secrets**:
 
 | Secret Name | Value |
 |---|---|
-| `github_token` | GitHub token with permission to dispatch workflows on the target repo |
-| `github_repository` | GitHub repository in `owner/repo` format |
-| `forgejo_ssh_key` | SSH private key (PEM format) with push access |
-| `forgejo_remote` | SSH remote (e.g. `ssh://git@codeberg.org/ujol/cf-formulae-mirror.git`) |
+| `GH_TOKEN` | GitHub PAT (no scopes needed for public repos) |
+| `SSH_KEY` | SSH private key (PEM format) with push access to this repo |
 
 ### 3. Manual Trigger
 
-Trigger the sync pipeline from **Crow UI → Pipelines → Run pipeline**.
+Run the `Check formulae artifact` workflow from **Forgejo → Actions → Run workflow**.
 
 ## GitHub Actions Setup
 
