@@ -4,7 +4,7 @@ name: Check formulae artifact
 # Ported from .crow/sync.yml (CrowCI). A push of .version triggers sync.yml.
 on:
     schedule:
-        - cron: "0 * * * *"
+        - cron: "*/20 * * * *"
     workflow_dispatch: {}
 
 jobs:
