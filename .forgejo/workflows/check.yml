@@ -24,7 +24,7 @@ jobs:
 
             - name: Check for new artifact
               env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+                  GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
               run: sh .crow/scripts/sync.sh
 
             - name: Commit and push
