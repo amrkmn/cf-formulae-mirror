@@ -23,7 +23,8 @@ A scheduled Forgejo workflow polls Homebrew's latest `github-pages` artifact and
 
 ## Prerequisites
 
-- [Bun](https://bun.sh) ≥ 1.x
+- [Node](https://nodejs.org) ≥ 18.19
+- [Nub](https://nubjs.com) (`npm install -g @nubjs/nub`)
 - [rclone](https://rclone.org) ≥ 1.74
 - A [Backblaze B2](https://www.backblaze.com/b2/cloud-storage.html) account
 - A domain on [Cloudflare](https://dash.cloudflare.com/) (Free plan works)
@@ -37,14 +38,14 @@ git clone https://codeberg.org/YOU/cf-formulae-mirror.git
 cd cf-formulae-mirror
 
 # 2. Install deps
-bun install
+nub install
 
 # 3. Configure environment
 cp .env.example .env
 # Edit .env with your GITHUB_TOKEN and B2 credentials
 
 # 4. Run a sync
-source .env && bun run sync
+nub run sync
 ```
 
 After the sync, your files land in `./dist/` and are uploaded to your B2 bucket.
@@ -52,7 +53,7 @@ After the sync, your files land in `./dist/` and are uploaded to your B2 bucket.
 You can also run just the extraction step without B2 sync:
 
 ```bash
-source .env && bun run extract
+nub run extract
 ```
 
 ## Environment Variables

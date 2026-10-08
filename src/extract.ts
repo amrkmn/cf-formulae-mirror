@@ -1,5 +1,6 @@
-import { $ } from "bun";
+import { execFileSync, spawnSync } from "node:child_process";
 import {
+    copyFileSync,
     createWriteStream,
     existsSync,
     mkdirSync,
@@ -7,10 +8,11 @@ import {
     readdirSync,
     renameSync,
     rmSync,
+    statSync,
     unlinkSync,
     writeFileSync,
 } from "node:fs";
-import { homedir, tmpdir } from "node:os";
+import { homedir } from "node:os";
 import { join, resolve, sep } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -33,7 +35,12 @@ const CACHE_DIR =
         "formulae-mirror-artifacts",
     );
 
-const REPO_ROOT = join(import.meta.dir, "..");
+const REPO_ROOT = join(import.meta.dirname, "..");
+
+export function hasCommand(cmd: string): boolean {
+    const probe = process.platform === "win32" ? "where.exe" : "which";
+    return spawnSync(probe, [cmd], { stdio: "ignore" }).status === 0;
+}
 const OUTPUT_DIR = process.env.OUTPUT_DIR || join(REPO_ROOT, "dist");
 
 type Headers = Record<string, string>;
@@ -128,7 +135,7 @@ async function downloadToFile(
     for (let attempt = 1; attempt <= RETRIES; attempt++) {
         try {
             // check existing state
-            const existingBytes = existsSync(dest) ? Bun.file(dest).size : 0;
+            const existingBytes = existsSync(dest) ? statSync(dest).size : 0;
             if (existingBytes === expectedBytes) return;
             if (existingBytes > expectedBytes) unlinkSync(dest);
 
@@ -159,9 +166,7 @@ async function downloadToFile(
                     await sleep(delay);
                     continue;
                 }
-                throw new NonRetriableError(
-                    `download ${url}: ${res.status}`,
-                );
+                throw new NonRetriableError(`download ${url}: ${res.status}`);
             }
 
             const appending = resumeBytes > 0 && res.status === 206;
@@ -184,7 +189,7 @@ async function downloadToFile(
             const stream = Readable.fromWeb(res.body as ReadableStream);
 
             const timer = setInterval(() => {
-                progress.update(Bun.file(dest).size);
+                progress.update(statSync(dest).size);
             }, 200);
 
             try {
@@ -193,7 +198,7 @@ async function downloadToFile(
                 clearInterval(timer);
             }
 
-            const downloaded = Bun.file(dest).size;
+            const downloaded = statSync(dest).size;
             progress.update(downloaded);
 
             if (downloaded !== expectedBytes) {
@@ -302,7 +307,7 @@ export async function extractPages(outputDir: string): Promise<{
         }
 
         // verify and finalize
-        const actual = Bun.file(tmpZip).size;
+        const actual = statSync(tmpZip).size;
         if (actual !== latest.sizeInBytes) {
             unlinkSync(tmpZip);
             throw new Error(
@@ -321,35 +326,46 @@ export async function extractPages(outputDir: string): Promise<{
         mkdirSync(unzipDir, { recursive: true });
 
         console.log("  extracting zip...");
-        await $`unzip -q ${cachedZip} -d ${unzipDir}`;
+        execFileSync("unzip", ["-q", cachedZip, "-d", unzipDir], {
+            stdio: "inherit",
+        });
 
         const artifactTar = join(unzipDir, "artifact.tar");
-        const tarExists = await Bun.file(artifactTar).exists();
-        if (!tarExists) throw new Error("artifact.tar not found inside zip");
+        if (!existsSync(artifactTar)) {
+            throw new Error("artifact.tar not found inside zip");
+        }
 
         console.log("  reading tar...");
-        const archive = new Bun.Archive(await Bun.file(artifactTar).bytes());
-        const entries = await archive.files();
+        const tarDir = join(tmpDir, "tar");
+        mkdirSync(tarDir, { recursive: true });
+        execFileSync("tar", ["-xf", artifactTar, "-C", tarDir], {
+            stdio: "inherit",
+        });
 
         const root = resolve(outputDir);
         const filePaths = new Set<string>();
-        const parseProgress = new Progress("extracting", entries.size, "count");
+        const apiDir = join(tarDir, "api");
+        const apiFiles = existsSync(apiDir)
+            ? readdirSync(apiDir, { recursive: true })
+                  .map(String)
+                  .filter((rel) => statSync(join(apiDir, rel)).isFile())
+            : [];
+        const parseProgress = new Progress(
+            "extracting",
+            apiFiles.length,
+            "count",
+        );
         let count = 0;
 
-        for (const [path, file] of entries) {
-            const normalized = path.replace(/^\.\/?/, "");
-            if (normalized.startsWith("api/")) {
-                const outPath = resolve(root, normalized);
-                if (!outPath.startsWith(root + sep)) {
-                    throw new Error(`unsafe path in artifact: ${path}`);
-                }
-                mkdirSync(join(outPath, ".."), { recursive: true });
-                writeFileSync(
-                    outPath,
-                    new Uint8Array(await file.arrayBuffer()),
-                );
-                filePaths.add(normalized);
+        for (const rel of apiFiles) {
+            const normalized = `api/${rel}`;
+            const outPath = resolve(root, normalized);
+            if (!outPath.startsWith(root + sep)) {
+                throw new Error(`unsafe path in artifact: ${normalized}`);
             }
+            mkdirSync(join(outPath, ".."), { recursive: true });
+            copyFileSync(join(tarDir, normalized), outPath);
+            filePaths.add(normalized);
             parseProgress.update(++count);
         }
 
@@ -363,7 +379,7 @@ export async function extractPages(outputDir: string): Promise<{
 // ---- CLI entry point ----
 
 async function main(): Promise<void> {
-    if (!Bun.which("unzip")) {
+    if (!hasCommand("unzip")) {
         throw new Error("Missing required command: unzip");
     }
 
@@ -382,8 +398,8 @@ async function main(): Promise<void> {
 }
 
 if (import.meta.main) {
-  main().catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
+    main().catch((err) => {
+        console.error(err);
+        process.exit(1);
+    });
 }

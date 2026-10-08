@@ -1,10 +1,10 @@
-import { $ } from "bun";
+import { execFileSync } from "node:child_process";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { extractPages } from "./extract";
+import { extractPages, hasCommand } from "./extract";
 
 const OUTPUT_DIR =
-    process.env.OUTPUT_DIR || join(import.meta.dir, "..", "dist");
+    process.env.OUTPUT_DIR || join(import.meta.dirname, "..", "dist");
 
 const B2_BUCKET = process.env.B2_BUCKET;
 const B2_APPLICATION_KEY_ID = process.env.B2_APPLICATION_KEY_ID;
@@ -24,11 +24,9 @@ function validateEnv(): void {
 }
 
 function checkPrereqs(): void {
-    const missing = ["rclone", "unzip"].filter((cmd) => !Bun.which(cmd));
+    const missing = ["rclone", "unzip"].filter((cmd) => !hasCommand(cmd));
     if (missing.length > 0) {
-        throw new Error(
-            `Missing required commands: ${missing.join(", ")}`,
-        );
+        throw new Error(`Missing required commands: ${missing.join(", ")}`);
     }
 }
 
@@ -46,27 +44,44 @@ async function syncToB2(): Promise<void> {
 
     console.log(`  syncing ${OUTPUT_DIR} -> b2:${B2_BUCKET}/`);
 
-    await $`rclone sync ${OUTPUT_DIR} b2:${B2_BUCKET} \
-            --b2-hard-delete \
-            --checksum \
-            --fast-list \
-            --transfers 64 \
-            --checkers 64 \
-            --order-by size,mixed,50 \
-            --retries 5 \
-            --low-level-retries 20 \
-            --retries-sleep 10s \
-            --log-level INFO \
-            --progress \
-            --stats 30s \
-            --stats-one-line-date`.env(process.env);
+    execFileSync(
+        "rclone",
+        [
+            "sync",
+            OUTPUT_DIR,
+            `b2:${B2_BUCKET}`,
+            "--b2-hard-delete",
+            "--checksum",
+            "--fast-list",
+            "--transfers",
+            "64",
+            "--checkers",
+            "64",
+            "--order-by",
+            "size,mixed,50",
+            "--retries",
+            "5",
+            "--low-level-retries",
+            "20",
+            "--retries-sleep",
+            "10s",
+            "--log-level",
+            "INFO",
+            "--progress",
+            "--stats",
+            "30s",
+            "--stats-one-line-date",
+        ],
+        { stdio: "inherit" },
+    );
 
-    const sizeResult = await $`rclone size b2:${B2_BUCKET} --fast-list`
-        .env(process.env)
-        .quiet();
+    const sizeText = execFileSync(
+        "rclone",
+        ["size", `b2:${B2_BUCKET}`, "--fast-list"],
+        { encoding: "utf8" },
+    );
 
-    const totalObjects =
-        sizeResult.text().match(/Total objects:\s*(.+)/)?.[1] ?? "N/A";
+    const totalObjects = sizeText.match(/Total objects:\s*(.+)/)?.[1] ?? "N/A";
 
     console.log(
         `  sync complete — bucket: ${B2_BUCKET}, files: ${totalObjects}`,
@@ -81,14 +96,25 @@ async function cleanupHiddenVersions(): Promise<void> {
 
     console.log(`  cleaning hidden versions in ${target}...`);
 
-    await $`rclone cleanup ${target} \
-            --fast-list \
-            --checkers 64 \
-            --transfers 64 \
-            --log-level INFO \
-            --progress \
-            --stats 30s \
-            --stats-one-line-date`.env(process.env);
+    execFileSync(
+        "rclone",
+        [
+            "cleanup",
+            target,
+            "--fast-list",
+            "--checkers",
+            "64",
+            "--transfers",
+            "64",
+            "--log-level",
+            "INFO",
+            "--progress",
+            "--stats",
+            "30s",
+            "--stats-one-line-date",
+        ],
+        { stdio: "inherit" },
+    );
 
     console.log(`  cleanup complete — bucket: ${bucket}`);
 }
@@ -118,7 +144,10 @@ async function main(): Promise<void> {
 
     await syncToB2();
 
-    writeFileSync(join(import.meta.dir, "..", ".version"), String(artifactId));
+    writeFileSync(
+        join(import.meta.dirname, "..", ".version"),
+        String(artifactId),
+    );
 
     try {
         await cleanupHiddenVersions();

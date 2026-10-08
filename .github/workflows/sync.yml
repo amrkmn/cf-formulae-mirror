@@ -6,7 +6,7 @@ on:
         branches: [main]
         paths:
             - "src/**"
-            - "bun.lock"
+            - "nub.lock"
             - ".version"
             - ".github/workflows/sync.yml"
 
@@ -18,9 +18,7 @@ jobs:
         steps:
             - uses: actions/checkout@v4
 
-            - uses: oven-sh/setup-bun@v2
-              with:
-                  bun-version: latest
+            - uses: nubjs/setup-nub@v0
 
             - name: Install rclone
               uses: AnimMouse/setup-rclone@v1
@@ -30,8 +28,8 @@ jobs:
                   sudo apt-get update -qq
                   sudo apt-get install -y -qq unzip
 
-            - name: Install bun deps
-              run: bun install --frozen-lockfile
+            - name: Install deps
+              run: nub ci
 
             - name: Cache artifact zip
               id: cache-artifact
@@ -48,4 +46,4 @@ jobs:
                   B2_APPLICATION_KEY_ID: ${{ secrets.B2_APPLICATION_KEY_ID }}
                   B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
                   B2_BUCKET: ${{ secrets.B2_BUCKET }}
-              run: bun run src/sync.ts
+              run: nub src/sync.ts

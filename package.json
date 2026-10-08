@@ -5,13 +5,20 @@
     "module": "src/extract.ts",
     "type": "module",
     "scripts": {
-        "extract": "bun run src/extract.ts",
-        "sync": "bun run src/sync.ts"
+        "extract": "nub src/extract.ts",
+        "sync": "nub src/sync.ts"
     },
     "devDependencies": {
-        "@types/bun": "latest"
+        "@types/node": "^26.6.4"
     },
     "peerDependencies": {
         "typescript": "^5.9.3"
+    },
+    "devEngines": {
+        "packageManager": {
+            "name": "nub",
+            "version": "^0.9.6",
+            "onFail": "ignore"
+        }
     }
 }
