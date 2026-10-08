@@ -23,15 +23,8 @@ jobs:
               run: sh .forgejo/scripts/sync.sh
 
             - name: Commit and push
-              env:
-                  SSH_KEY: ${{ secrets.SSH_KEY }}
               run: |
                   set -eu
-                  export GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=accept-new"
-
-                  mkdir -p ~/.ssh && chmod 700 ~/.ssh
-                  printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
-                  chmod 600 ~/.ssh/id_ed25519
 
                   git config user.name  "Forgejo"
                   git config user.email "forgejo@users.noreply.local"
@@ -43,5 +36,13 @@ jobs:
                   fi
 
                   git commit -m "sync: artifact #$(cat .version)"
-                  git pull --rebase --autostash origin main
-                  git push origin HEAD:main
+
+                  # Retry in case another run pushed to main first.
+                  for attempt in 1 2 3; do
+                    if git pull --rebase --autostash origin main && git push origin HEAD:main; then
+                      exit 0
+                    fi
+                    echo "push attempt ${attempt} failed, retrying"
+                    sleep 5
+                  done
+                  exit 1
