@@ -11,8 +11,7 @@ import {
     writeFileSync,
 } from "node:fs";
 import { homedir, tmpdir } from "node:os";
-import { join } from "node:path";
-import { cwd } from "node:process";
+import { join, resolve, sep } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { Progress } from "./progress";
@@ -24,6 +23,9 @@ const ARTIFACT_API =
 const RETRIES = 5;
 const BASE_DELAY_MS = 2000;
 
+// thrown for HTTP errors that retrying cannot fix (e.g. 404)
+class NonRetriableError extends Error {}
+
 const CACHE_DIR =
     process.env.CACHE_DIR ??
     join(
@@ -31,7 +33,8 @@ const CACHE_DIR =
         "formulae-mirror-artifacts",
     );
 
-const OUTPUT_DIR = process.env.OUTPUT_DIR ?? join(cwd(), "dist");
+const REPO_ROOT = join(import.meta.dir, "..");
+const OUTPUT_DIR = process.env.OUTPUT_DIR || join(REPO_ROOT, "dist");
 
 type Headers = Record<string, string>;
 
@@ -50,6 +53,12 @@ const isRetriableStatus = (status: number): boolean =>
 const retryDelay = (attempt: number): number =>
     BASE_DELAY_MS * Math.pow(2, attempt - 1) + Math.random() * 1000;
 
+// delay the server asked for via Retry-After (seconds), if present
+const retryAfterMs = (res: Response): number | undefined => {
+    const seconds = Number(res.headers.get("retry-after"));
+    return seconds > 0 ? seconds * 1000 : undefined;
+};
+
 const fmtError = (err: unknown): string => {
     if (err instanceof Error) return err.message;
     return String(err ?? "unknown error");
@@ -57,7 +66,9 @@ const fmtError = (err: unknown): string => {
 
 const githubAuthHeaders = (): Headers => {
     const token = process.env.GITHUB_TOKEN;
-    if (!token) throw new Error("GITHUB_TOKEN is required");
+    if (!token) {
+        throw new Error("GITHUB_TOKEN is required (set in .env for local dev)");
+    }
     return {
         Accept: "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
@@ -93,7 +104,7 @@ async function fetchJson(url: string, headers: Headers): Promise<unknown> {
                     `fetch ${url}: ${res.status} (retries exhausted)`,
                 );
             }
-            const delay = retryDelay(attempt);
+            const delay = retryAfterMs(res) ?? retryDelay(attempt);
             console.log(
                 `  retry ${attempt}/${RETRIES} ${res.status} for ${url} ` +
                     `(wait ${Math.round(delay)}ms)`,
@@ -148,7 +159,9 @@ async function downloadToFile(
                     await sleep(delay);
                     continue;
                 }
-                throw new Error(`download ${url}: ${res.status}`);
+                throw new NonRetriableError(
+                    `download ${url}: ${res.status}`,
+                );
             }
 
             const appending = resumeBytes > 0 && res.status === 206;
@@ -190,7 +203,9 @@ async function downloadToFile(
             }
             return;
         } catch (err) {
-            if (attempt >= RETRIES) throw err;
+            if (err instanceof NonRetriableError || attempt >= RETRIES) {
+                throw err;
+            }
             const delay = retryDelay(attempt);
             console.log(
                 `  download retry ${attempt}/${RETRIES}: ${fmtError(err)} ` +
@@ -250,11 +265,6 @@ export async function extractPages(outputDir: string): Promise<{
     filePaths: Set<string>;
     artifactId: number;
 }> {
-    const token = process.env.GITHUB_TOKEN;
-    if (!token) {
-        throw new Error("GITHUB_TOKEN is required (set in .env for local dev)");
-    }
-
     const headers = githubAuthHeaders();
     const latest = await fetchLatestArtifact();
 
@@ -282,7 +292,6 @@ export async function extractPages(outputDir: string): Promise<{
                 `  nightly.link failed (${fmtError(nightlyErr)}), ` +
                     "falling back to GitHub API...",
             );
-            if (existsSync(tmpZip)) unlinkSync(tmpZip);
             await downloadToFile(
                 latest.archiveDownloadUrl,
                 tmpZip,
@@ -322,6 +331,7 @@ export async function extractPages(outputDir: string): Promise<{
         const archive = new Bun.Archive(await Bun.file(artifactTar).bytes());
         const entries = await archive.files();
 
+        const root = resolve(outputDir);
         const filePaths = new Set<string>();
         const parseProgress = new Progress("extracting", entries.size, "count");
         let count = 0;
@@ -329,7 +339,10 @@ export async function extractPages(outputDir: string): Promise<{
         for (const [path, file] of entries) {
             const normalized = path.replace(/^\.\/?/, "");
             if (normalized.startsWith("api/")) {
-                const outPath = join(outputDir, normalized);
+                const outPath = resolve(root, normalized);
+                if (!outPath.startsWith(root + sep)) {
+                    throw new Error(`unsafe path in artifact: ${path}`);
+                }
                 mkdirSync(join(outPath, ".."), { recursive: true });
                 writeFileSync(
                     outPath,
@@ -361,7 +374,7 @@ async function main(): Promise<void> {
 
     const { filePaths, artifactId } = await extractPages(OUTPUT_DIR);
 
-    writeFileSync(".version", String(artifactId));
+    writeFileSync(join(REPO_ROOT, ".version"), String(artifactId));
 
     console.log(
         `Done! ${filePaths.size} files extracted (artifact #${artifactId}).`,

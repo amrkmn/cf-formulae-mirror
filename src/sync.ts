@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { extractPages } from "./extract";
 
 const OUTPUT_DIR =
-    process.env.OUTPUT_DIR ?? join(import.meta.dir, "..", "dist");
+    process.env.OUTPUT_DIR || join(import.meta.dir, "..", "dist");
 
 const B2_BUCKET = process.env.B2_BUCKET;
 const B2_APPLICATION_KEY_ID = process.env.B2_APPLICATION_KEY_ID;
