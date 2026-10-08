@@ -22,10 +22,13 @@ jobs:
               with:
                   bun-version: latest
 
+            - name: Install rclone
+              uses: AnimMouse/setup-rclone@v1
+
             - name: Install system deps
               run: |
                   sudo apt-get update -qq
-                  sudo apt-get install -y -qq rclone unzip
+                  sudo apt-get install -y -qq unzip
 
             - name: Install bun deps
               run: bun install --frozen-lockfile
@@ -46,12 +49,3 @@ jobs:
                   B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
                   B2_BUCKET: ${{ secrets.B2_BUCKET }}
               run: bun run src/sync.ts
-
-            - name: Cleanup hidden B2 versions
-              continue-on-error: true
-              env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                  B2_APPLICATION_KEY_ID: ${{ secrets.B2_APPLICATION_KEY_ID }}
-                  B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
-                  B2_BUCKET: ${{ secrets.B2_BUCKET }}
-              run: bun run src/sync.ts --cleanup
