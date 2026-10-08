@@ -1,21 +1,9 @@
-const IS_TTY: boolean = (() => {
-    if (!process.stdout.isTTY) return false;
-    if (process.env.TERM === "dumb") return false;
-    if (process.env.CI === "true" || process.env.CI === "1") return false;
-    const ciVars = [
-        "GITHUB_ACTIONS",
-        "GITLAB_CI",
-        "CIRCLECI",
-        "TRAVIS",
-        "JENKINS_HOME",
-        "BUILDKITE",
-        "DRONE",
-        "RENDER",
-        "CF_PAGES",
-        "VERCEL",
-    ] as const;
-    return ciVars.every((k) => !process.env[k]);
-})();
+// CI runners set CI=true and don't use a TTY; a non-TTY stdout already covers the rest
+const IS_TTY: boolean =
+    Boolean(process.stdout.isTTY) &&
+    process.env.TERM !== "dumb" &&
+    process.env.CI !== "true" &&
+    process.env.CI !== "1";
 
 const toMiB = (bytes: number): string => (bytes / (1024 * 1024)).toFixed(1);
 
