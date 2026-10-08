@@ -72,9 +72,9 @@ In Backblaze B2 web console:
 1. Navigate to your bucket → **Bucket Settings**
 2. In **Bucket Info**, add:
    ```json
-   {"cache-control":"max-age=7200"}
+   {"cache-control":"max-age=600"}
    ```
-   (Caches for 2 hours — adjust `max-age` as needed)
+   (Caches for 10 minutes, matching the cache time GitHub Pages sends for formulae.brew.sh — keep it in line with upstream)
 3. **Update Bucket**
 
 ### 5b. (Optional) Cloudflare Cache Rules
