@@ -18,9 +18,12 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { Progress } from "./progress";
 
-const ARTIFACT_API =
-    process.env.ARTIFACT_API_URL ??
-    "https://api.github.com/repos/Homebrew/formulae.brew.sh/actions/artifacts?name=github-pages";
+const ARTIFACT_API_BASE =
+    "https://api.github.com/repos/Homebrew/formulae.brew.sh/actions/artifacts";
+
+// The site bundle was published as "github-pages" until ~Oct 2026, then as
+// "github-pages-1". The API matches names exactly, so try each in turn.
+const ARTIFACT_NAMES = ["github-pages-1", "github-pages"];
 
 const RETRIES = 5;
 const BASE_DELAY_MS = 2000;
@@ -239,31 +242,39 @@ function cleanStaleCache(keepArtifactId: number): void {
 
 async function fetchLatestArtifact(): Promise<ArtifactMeta> {
     const headers = githubAuthHeaders();
-    const data = (await fetchJson(ARTIFACT_API, headers)) as {
-        artifacts: Array<{
-            id: number;
-            archive_download_url: string;
-            size_in_bytes: number;
-            workflow_run?: { head_branch?: string };
-            expired: boolean;
-        }>;
-    };
+    const apiUrls = process.env.ARTIFACT_API_URL
+        ? [process.env.ARTIFACT_API_URL]
+        : ARTIFACT_NAMES.map(
+              (name) => `${ARTIFACT_API_BASE}?name=${name}&per_page=10`,
+          );
 
-    const latest = data.artifacts.find(
-        (a) => a.workflow_run?.head_branch === "main" && !a.expired,
-    );
+    for (const url of apiUrls) {
+        const data = (await fetchJson(url, headers)) as {
+            artifacts: Array<{
+                id: number;
+                archive_download_url: string;
+                size_in_bytes: number;
+                workflow_run?: { head_branch?: string };
+                expired: boolean;
+            }>;
+        };
 
-    if (!latest) {
-        throw new Error("No latest github-pages artifact found on main branch");
+        const latest = data.artifacts.find(
+            (a) => a.workflow_run?.head_branch === "main" && !a.expired,
+        );
+
+        if (latest) {
+            console.log("Fetching latest artifact from GitHub...");
+
+            return {
+                id: latest.id,
+                archiveDownloadUrl: latest.archive_download_url,
+                sizeInBytes: latest.size_in_bytes,
+            };
+        }
     }
 
-    console.log("Fetching latest artifact from GitHub...");
-
-    return {
-        id: latest.id,
-        archiveDownloadUrl: latest.archive_download_url,
-        sizeInBytes: latest.size_in_bytes,
-    };
+    throw new Error("No latest github-pages artifact found on main branch");
 }
 
 export async function extractPages(outputDir: string): Promise<{

@@ -37,11 +37,20 @@ if ! command -v gh >/dev/null 2>&1; then
 fi
 
 # --- Fetch latest artifact ID (gh reads GH_TOKEN or GITHUB_TOKEN from the environment) ---
-LATEST_ID=$(timeout 60 gh api "repos/${REPO}/actions/artifacts?name=github-pages" \
-    --jq '[.artifacts[] | select(.workflow_run.head_branch == "main" and .expired == false)] | first | .id')
+# Note: the site bundle was published as "github-pages" until ~Oct 2026,
+# then as "github-pages-1". The API matches names exactly (and its
+# unfiltered list endpoint 500s on this repo), so try each name in turn.
+LATEST_ID=""
+for ARTIFACT_NAME in github-pages-1 github-pages; do
+    LATEST_ID=$(timeout 60 gh api "repos/${REPO}/actions/artifacts?name=${ARTIFACT_NAME}&per_page=10" \
+        --jq '[.artifacts[] | select(.workflow_run.head_branch == "main" and .expired == false)] | first | .id')
+    if [ -n "${LATEST_ID}" ] && [ "${LATEST_ID}" != "null" ]; then
+        break
+    fi
+done
 
 if [ -z "${LATEST_ID}" ] || [ "${LATEST_ID}" = "null" ]; then
-    echo "ERROR: Could not find a valid github-pages artifact on main." >&2
+    echo "ERROR: Could not find a valid github-pages* artifact on main." >&2
     exit 1
 fi
 
